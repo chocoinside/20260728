@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>별자리 로또 챗봇</title>
+    <style>
+      :root {
+        --primary: #ff385c;
+        --primary-active: #e00b41;
+        --ink: #222222;
+        --body: #3f3f3f;
+        --muted: #6a6a6a;
+        --hairline: #dddddd;
+        --hairline-soft: #ebebeb;
+        --canvas: #ffffff;
+        --surface-soft: #f7f7f7;
+        --surface-strong: #f2f2f2;
+        --shadow: rgba(0, 0, 0, 0.02) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 6px 0, rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+        --radius-sm: 8px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-full: 9999px;
+        --page-pad: 24px;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: "Airbnb Cereal VF", Circular, -apple-system, system-ui, Roboto, "Helvetica Neue", sans-serif;
+      }
+      a { color: inherit; text-decoration: none; }
+      button, input { font: inherit; }
+
+      .page { min-height: 100vh; display: flex; flex-direction: column; }
+
+      .top-nav {
+        height: 80px;
+        border-bottom: 1px solid var(--hairline-soft);
+        background: var(--canvas);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .top-nav-inner {
+        height: 100%;
+        width: min(1280px, calc(100% - 2 * var(--page-pad)));
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-full);
+        background: var(--primary);
+        color: #fff;
+        display: inline-grid;
+        place-items: center;
+        box-shadow: 0 8px 18px rgba(255, 56, 92, 0.22);
+      }
+      .top-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-full);
+      }
+      .tab {
+        border: 0;
+        border-radius: var(--radius-full);
+        height: 40px;
+        padding: 0 16px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .tab.is-active { background: var(--surface-soft); color: var(--ink); }
+      .nav-actions { display: inline-flex; align-items: center; gap: 12px; }
+      .nav-link { font-size: 14px; font-weight: 500; padding: 10px 12px; border-radius: var(--radius-full); }
+      .icon-button, .account-button {
+        height: 40px;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--hairline);
+        background: var(--canvas);
+        cursor: pointer;
+      }
+      .icon-button { width: 40px; display: inline-grid; place-items: center; }
+      .account-button { padding: 0 8px 0 14px; display: inline-flex; align-items: center; gap: 10px; }
+      .account-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-full);
+        background: var(--surface-strong);
+        display: inline-grid;
+        place-items: center;
+      }
+
+      .main {
+        flex: 1;
+        width: min(1280px, calc(100% - 2 * var(--page-pad)));
+        margin: 0 auto;
+        padding: 32px 0 64px;
+        display: grid;
+        gap: 24px;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+        gap: 24px;
+        align-items: start;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: var(--radius-full);
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      h1 {
+        margin: 18px 0 12px;
+        font-size: clamp(28px, 4.5vw, 48px);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+      }
+      .lead {
+        margin: 0;
+        max-width: 56ch;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--body);
+      }
+      .search-bar {
+        margin-top: 24px;
+        background: var(--canvas);
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-full);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+      }
+      .search-segment {
+        min-height: 64px;
+        padding: 14px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        border-right: 1px solid var(--hairline-soft);
+      }
+      .search-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.32px;
+        color: var(--muted);
+      }
+      .search-value { font-size: 14px; color: var(--ink); font-weight: 500; }
+      .search-orb {
+        width: 64px;
+        border: 0;
+        background: var(--primary);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .search-orb:hover { background: var(--primary-active); }
+
+      .surface {
+        background: var(--canvas);
+        border: 1px solid var(--hairline-soft);
+        border-radius: var(--radius-md);
+      }
+      .chat-card, .side-card {
+        padding: 20px;
+        display: grid;
+        gap: 14px;
+      }
+      .chat-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+      .chat-header h2, .side-card h3, .history-title {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.2;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .chat-header span { color: var(--muted); font-size: 14px; }
+
+      .chat-log {
+        min-height: 440px;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        padding: 18px;
+        border-radius: var(--radius-md);
+        background: var(--surface-soft);
+      }
+      .message { display: flex; gap: 10px; align-items: flex-start; }
+      .message.user { justify-content: flex-end; }
+      .bubble {
+        max-width: min(100%, 520px);
+        padding: 14px 16px;
+        border-radius: 18px;
+        font-size: 15px;
+        line-height: 1.6;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+        white-space: pre-wrap;
+      }
+      .message.user .bubble {
+        background: var(--primary);
+        color: #fff;
+        border-bottom-right-radius: 6px;
+      }
+      .message.assistant .bubble {
+        background: var(--canvas);
+        color: var(--ink);
+        border: 1px solid var(--hairline);
+        border-bottom-left-radius: 6px;
+      }
+      .assistant-card { display: grid; gap: 12px; }
+      .assistant-kicker {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: var(--radius-full);
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+      .chip {
+        min-width: 38px;
+        height: 38px;
+        border-radius: var(--radius-full);
+        background: var(--surface-soft);
+        border: 1px solid var(--hairline);
+        display: inline-grid;
+        place-items: center;
+        font-weight: 700;
+      }
+      .assistant-note { font-size: 13px; color: var(--muted); }
+
+      .composer { display: grid; gap: 12px; }
+      .composer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+      .text-input {
+        height: 56px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--hairline);
+        background: var(--canvas);
+        padding: 0 14px;
+      }
+      .text-input:focus {
+        outline: none;
+        border-color: var(--ink);
+        box-shadow: 0 0 0 1px var(--ink);
+      }
+      .btn {
+        min-height: 48px;
+        border-radius: var(--radius-sm);
+        border: 0;
+        padding: 14px 18px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-primary { background: var(--primary); color: #fff; }
+      .btn-primary:hover { background: var(--primary-active); }
+      .btn-secondary { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
+      .btn-secondary:hover { background: var(--surface-soft); }
+      .btn:disabled, .text-input:disabled { opacity: 0.6; cursor: not-allowed; }
+      .helper { font-size: 13px; color: var(--muted); }
+
+      .side { display: grid; gap: 16px; }
+      .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .info-item {
+        padding: 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-soft);
+        display: grid;
+        gap: 6px;
+      }
+      .info-item strong { font-size: 20px; letter-spacing: -0.03em; }
+      .info-item span { font-size: 13px; color: var(--muted); }
+
+      .history-list { display: grid; gap: 10px; }
+      .history-item {
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-soft);
+        display: grid;
+        gap: 8px;
+      }
+      .history-item time { color: var(--muted); font-size: 13px; }
+      .history-line { display: flex; flex-wrap: wrap; gap: 6px; }
+      .history-chip {
+        width: 26px;
+        height: 26px;
+        border-radius: var(--radius-full);
+        display: inline-grid;
+        place-items: center;
+        background: var(--canvas);
+        border: 1px solid var(--hairline);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .empty-state {
+        padding: 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .footer-band {
+        border-top: 1px solid var(--hairline-soft);
+        background: var(--canvas);
+        padding: 18px 0 28px;
+      }
+      .footer-inner {
+        width: min(1280px, calc(100% - 2 * var(--page-pad)));
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .footer-links { display: inline-flex; gap: 14px; flex-wrap: wrap; }
+      .footer-links a { color: var(--ink); }
+
+      @media (max-width: 960px) {
+        .hero { grid-template-columns: 1fr; }
+        .top-tabs { display: none; }
+      }
+      @media (max-width: 720px) {
+        .top-nav-inner, .main, .footer-inner { width: min(100%, calc(100% - 32px)); }
+        .top-nav { height: auto; padding: 12px 0; }
+        .nav-actions .nav-link { display: none; }
+        .search-bar { grid-template-columns: 1fr; border-radius: var(--radius-lg); }
+        .search-segment { border-right: 0; border-bottom: 1px solid var(--hairline-soft); }
+        .search-orb { width: 100%; min-height: 52px; }
+        .composer-row, .info-grid { grid-template-columns: 1fr; }
+        .bubble { max-width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top-nav" id="top">
+        <div class="top-nav-inner">
+          <a class="brand" href="#top" aria-label="별자리 로또 챗봇 홈">
+            <span class="brand-mark">L</span>
+            <span>별자리 로또 챗봇</span>
+          </a>
+
+          <nav class="top-tabs" aria-label="주요 메뉴">
+            <button class="tab is-active" type="button">챗봇</button>
+            <button class="tab" type="button">기록</button>
+            <button class="tab" type="button">도움말</button>
+          </nav>
+
+          <div class="nav-actions">
+            <a class="nav-link" href="#history">기록 보기</a>
+            <button class="icon-button" type="button" aria-label="알림">◔</button>
+            <button class="account-button" type="button" aria-label="계정 메뉴">
+              <span>메뉴</span>
+              <span class="account-dot">☰</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="hero" aria-label="별자리 로또 챗봇">
+          <div>
+            <div class="eyebrow">생년월일 입력, 별자리 해석, 번호 추첨</div>
+            <h1>생년월일로 번호를 뽑고, 왜 그런지 챗봇이 설명해드려요.</h1>
+            <p class="lead">
+              생년월일을 넣으면 별자리를 계산하고, 그 정보와 숫자 시드를 섞어 1부터 45까지의 번호 6개를 추천합니다.
+              서버가 연결되어 있지 않아도 로컬 모드로 계속 동작합니다.
+            </p>
+
+            <div class="search-bar" aria-label="현재 추첨 상태">
+              <div class="search-segment">
+                <span class="search-label">모드</span>
+                <span class="search-value" id="modeValue">대기 중</span>
+              </div>
+              <div class="search-segment">
+                <span class="search-label">별자리</span>
+                <span class="search-value" id="zodiacValue">-</span>
+              </div>
+              <div class="search-segment">
+                <span class="search-label">결과</span>
+                <span class="search-value" id="resultValue">아직 없음</span>
+              </div>
+              <button class="search-orb" id="quickResetBtn" type="button" aria-label="초기화">⌂</button>
+            </div>
+          </div>
+
+          <aside class="side">
+            <section class="surface side-card">
+              <h3>추첨 정보</h3>
+              <div class="info-grid">
+                <div class="info-item">
+                  <strong id="drawCount">0</strong>
+                  <span>총 추첨 횟수</span>
+                </div>
+                <div class="info-item">
+                  <strong id="seedValue">-</strong>
+                  <span>생년월일 시드</span>
+                </div>
+                <div class="info-item">
+                  <strong id="zodiacShort">-</strong>
+                  <span>현재 별자리</span>
+                </div>
+                <div class="info-item">
+                  <strong id="statusBadge">대기</strong>
+                  <span>응답 상태</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="surface side-card">
+              <h3>빠른 시작</h3>
+              <p>생년월일을 넣고 전송하면 챗봇이 번호와 이유를 한 번에 알려줍니다.</p>
+              <div class="helper">예: 1994-03-21</div>
+            </section>
+          </aside>
+        </section>
+
+        <section class="surface chat-card">
+          <div class="chat-header">
+            <h2>챗봇 대화</h2>
+            <span>OpenAI API 연동</span>
+          </div>
+
+          <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+          <form class="composer" id="composer">
+            <div class="composer-row">
+              <input class="text-input" id="birthDate" name="birthDate" type="date" required aria-label="생년월일 입력" />
+              <button class="btn btn-primary" id="sendBtn" type="submit">번호 받기</button>
+            </div>
+            <div class="helper">
+              서버가 연결되지 않아도 로컬 모드로 번호와 설명이 계속 나옵니다.
+            </div>
+          </form>
+        </section>
+
+        <section class="surface side-card" id="history">
+          <div class="history-title">최근 결과</div>
+          <div class="history-list" id="historyList"></div>
+        </section>
+      </main>
+
+      <footer class="footer-band">
+        <div class="footer-inner">
+          <div>별자리 기반 로또 챗봇. 서버가 없으면 로컬 모드로 자동 전환됩니다.</div>
+          <div class="footer-links">
+            <a href="#history">기록</a>
+            <a href="#top">상단</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      const chatLog = document.getElementById("chatLog");
+      const historyList = document.getElementById("historyList");
+      const composer = document.getElementById("composer");
+      const birthDateInput = document.getElementById("birthDate");
+      const sendBtn = document.getElementById("sendBtn");
+      const quickResetBtn = document.getElementById("quickResetBtn");
+      const modeValue = document.getElementById("modeValue");
+      const zodiacValue = document.getElementById("zodiacValue");
+      const resultValue = document.getElementById("resultValue");
+      const drawCountEl = document.getElementById("drawCount");
+      const seedValue = document.getElementById("seedValue");
+      const zodiacShort = document.getElementById("zodiacShort");
+      const statusBadge = document.getElementById("statusBadge");
+
+      const zodiacRanges = [
+        ["염소자리", [12, 22], [1, 19]],
+        ["물병자리", [1, 20], [2, 18]],
+        ["물고기자리", [2, 19], [3, 20]],
+        ["양자리", [3, 21], [4, 19]],
+        ["황소자리", [4, 20], [5, 20]],
+        ["쌍둥이자리", [5, 21], [6, 20]],
+        ["게자리", [6, 21], [7, 22]],
+        ["사자자리", [7, 23], [8, 22]],
+        ["처녀자리", [8, 23], [9, 22]],
+        ["천칭자리", [9, 23], [10, 22]],
+        ["전갈자리", [10, 23], [11, 21]],
+        ["사수자리", [11, 22], [12, 21]],
+      ];
+
+      let drawCount = 0;
+      let history = [];
+
+      function formatDateLabel(value) {
+        const date = new Date(`${value}T00:00:00`);
+        return new Intl.DateTimeFormat("ko-KR", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+        }).format(date);
+      }
+
+      function getZodiac(date) {
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+
+        for (const [name, start, end] of zodiacRanges) {
+          const [startMonth, startDay] = start;
+          const [endMonth, endDay] = end;
+
+          if (startMonth < endMonth || (startMonth === endMonth && startDay <= endDay)) {
+            if (
+              (month > startMonth || (month === startMonth && day >= startDay)) &&
+              (month < endMonth || (month === endMonth && day <= endDay))
+            ) {
+              return name;
+            }
+          } else if (
+            (month > startMonth || (month === startMonth && day >= startDay)) ||
+            (month < endMonth || (month === endMonth && day <= endDay))
+          ) {
+            return name;
+          }
+        }
+
+        return "염소자리";
+      }
+
+      function buildNumbers(date, zodiac) {
+        const zodiacIndex = zodiacRanges.findIndex(([name]) => name === zodiac);
+        const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate() + Math.max(zodiacIndex, 0) * 97;
+
+        let state = seed >>> 0;
+        const picked = [];
+        const seen = new Set();
+
+        while (picked.length < 6) {
+          state = (1664525 * state + 1013904223) >>> 0;
+          const number = (state % 45) + 1;
+          if (!seen.has(number)) {
+            seen.add(number);
+            picked.push(number);
+          }
+        }
+
+        picked.sort((a, b) => a - b);
+        return { numbers: picked, seed };
+      }
+
+      function buildLocalReply(date, zodiac, numbers, seed) {
+        const dayLabel = formatDateLabel(date.toISOString().slice(0, 10));
+        return {
+          birthDate: date.toISOString().slice(0, 10),
+          zodiac,
+          numbers,
+          seed,
+          reply:
+            `${dayLabel}은 ${zodiac} 흐름이 강해서, 생년월일 숫자와 별자리 가중치를 섞어 ${numbers.join(", ")}를 골랐어요. ` +
+            "각 번호는 재미로 해석한 추천이라 가볍게 즐기시면 좋아요.",
+          disclaimer: "별자리와 로또 해석은 오락용입니다.",
+          selectionBasis: "생년월일 숫자와 별자리 가중치를 섞은 시드로 1부터 45까지를 중복 없이 섞어 뽑았습니다.",
+          source: "로컬 모드",
+        };
+      }
+
+      function appendMessage(role, content) {
+        const message = document.createElement("div");
+        message.className = `message ${role}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        if (typeof content === "string") {
+          bubble.textContent = content;
+        } else {
+          bubble.appendChild(content);
+        }
+
+        message.appendChild(bubble);
+        chatLog.appendChild(message);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return message;
+      }
+
+      function renderAssistantCard(data) {
+        const card = document.createElement("div");
+        card.className = "assistant-card";
+
+        const kicker = document.createElement("div");
+        kicker.className = "assistant-kicker";
+        kicker.textContent = `${data.zodiac} · 행운 번호 · ${data.source || "AI"}`;
+
+        const chipRow = document.createElement("div");
+        chipRow.className = "chip-row";
+        data.numbers.forEach((number) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = number;
+          chipRow.appendChild(chip);
+        });
+
+        const explanation = document.createElement("div");
+        explanation.textContent = data.reply;
+
+        const note = document.createElement("div");
+        note.className = "assistant-note";
+        note.textContent = `${data.selectionBasis} ${data.disclaimer}`;
+
+        card.append(kicker, chipRow, explanation, note);
+        return card;
+      }
+
+      function renderHistory() {
+        historyList.innerHTML = "";
+
+        if (history.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.textContent = "아직 추첨 기록이 없습니다.";
+          historyList.appendChild(empty);
+          return;
+        }
+
+        history.forEach((item) => {
+          const entry = document.createElement("div");
+          entry.className = "history-item";
+
+          const time = document.createElement("time");
+          time.textContent = item.time;
+
+          const line = document.createElement("div");
+          line.className = "history-line";
+          item.numbers.forEach((number) => {
+            const chip = document.createElement("span");
+            chip.className = "history-chip";
+            chip.textContent = number;
+            line.appendChild(chip);
+          });
+
+          entry.append(time, line);
+          historyList.appendChild(entry);
+        });
+      }
+
+      function pushHistory(item) {
+        history.unshift(item);
+        history = history.slice(0, 6);
+        renderHistory();
+      }
+
+      function setIdleState() {
+        modeValue.textContent = "대기 중";
+        zodiacValue.textContent = "-";
+        resultValue.textContent = "아직 없음";
+        seedValue.textContent = "-";
+        zodiacShort.textContent = "-";
+        statusBadge.textContent = "대기";
+        drawCountEl.textContent = String(drawCount);
+      }
+
+      function setBusyState(loading) {
+        sendBtn.disabled = loading;
+        birthDateInput.disabled = loading;
+        sendBtn.textContent = loading ? "계산 중..." : "번호 받기";
+        if (loading) {
+          statusBadge.textContent = "처리 중";
+        }
+      }
+
+      function addAssistantPlaceholder() {
+        const message = document.createElement("div");
+        message.className = "message assistant";
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = "생년월일을 분석하고 있어요. 별자리와 번호를 계산하는 중입니다...";
+
+        message.appendChild(bubble);
+        chatLog.appendChild(message);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return message;
+      }
+
+      async function requestNumbers(birthDate) {
+        const date = new Date(`${birthDate}T00:00:00`);
+        const zodiac = getZodiac(date);
+        const { numbers, seed } = buildNumbers(date, zodiac);
+
+        if (location.protocol === "file:") {
+          return buildLocalReply(date, zodiac, numbers, seed);
+        }
+
+        try {
+          const response = await fetch("/api/draw", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ birthDate }),
+          });
+
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            return buildLocalReply(date, zodiac, numbers, seed);
+          }
+
+          return { ...payload, source: "OpenAI" };
+        } catch {
+          return buildLocalReply(date, zodiac, numbers, seed);
+        }
+      }
+
+      composer.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const birthDate = birthDateInput.value;
+        if (!birthDate) return;
+
+        appendMessage("user", `생년월일: ${formatDateLabel(birthDate)}`);
+        const pending = addAssistantPlaceholder();
+        setBusyState(true);
+
+        try {
+          const data = await requestNumbers(birthDate);
+          pending.remove();
+
+          modeValue.textContent = data.source || "로컬 모드";
+          zodiacValue.textContent = data.zodiac;
+          resultValue.textContent = data.numbers.join(", ");
+          seedValue.textContent = String(data.seed);
+          zodiacShort.textContent = data.zodiac;
+          statusBadge.textContent = "완료";
+          drawCount += 1;
+          drawCountEl.textContent = String(drawCount);
+
+          appendMessage("assistant", renderAssistantCard(data));
+
+          pushHistory({
+            time: new Intl.DateTimeFormat("ko-KR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date()),
+            numbers: data.numbers,
+          });
+        } catch (error) {
+          pending.remove();
+          const fallback = document.createElement("div");
+          fallback.className = "assistant-card";
+          fallback.innerHTML = `
+            <div class="assistant-kicker">안내</div>
+            <div>잠시 연결이 안 되어도 로컬 모드로 번호를 계산할 수 있어요.</div>
+            <div class="assistant-note">${String(error.message || "알 수 없는 오류")}</div>
+          `;
+          appendMessage("assistant", fallback);
+          statusBadge.textContent = "로컬";
+        } finally {
+          setBusyState(false);
+        }
+      });
+
+      quickResetBtn.addEventListener("click", () => {
+        chatLog.innerHTML = "";
+        history = [];
+        drawCount = 0;
+        birthDateInput.value = "";
+        renderHistory();
+        setIdleState();
+        appendMessage("assistant", "생년월일을 입력하면 별자리 기반 번호를 추천해드릴게요.");
+      });
+
+      renderHistory();
+      setIdleState();
+      appendMessage("assistant", "안녕하세요. 생년월일을 입력해주시면 별자리를 계산해서 번호 6개와 이유를 알려드릴게요.");
+    </script>
+  </body>
+</html>
