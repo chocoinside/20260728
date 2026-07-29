@@ -746,6 +746,132 @@
         return "";
       }
 
+      function escapeXml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&apos;");
+      }
+
+      function buildLocalStarCardSvg(data) {
+        const numbers = Array.isArray(data?.numbers) ? data.numbers : [];
+        const title = escapeXml("LOTTODB 세트 별자리");
+        const zodiac = escapeXml(data?.zodiac || "별자리");
+        const birthDate = escapeXml(data?.birthDate || "");
+        const chips = numbers
+          .map((number, index) => {
+            const x = 240 + index * 170;
+            const y = 1810;
+            const fill = index < 3 ? "#69d0ff" : index < 5 ? "#ff6b6f" : "#d2d4df";
+            return `
+              <g>
+                <circle cx="${x}" cy="${y}" r="64" fill="${fill}" opacity="0.95" />
+                <text x="${x}" y="${y + 18}" text-anchor="middle" fill="#111827" font-size="54" font-weight="700" font-family="Arial, sans-serif">${escapeXml(number)}</text>
+              </g>
+            `;
+          })
+          .join("");
+
+        const nodePositions = [
+          [430, 600],
+          [760, 360],
+          [1130, 560],
+          [1180, 1040],
+          [790, 1320],
+          [380, 1040],
+        ];
+        const nodeLines = [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [3, 4],
+          [4, 5],
+          [5, 0],
+          [0, 2],
+          [1, 3],
+          [2, 4],
+          [3, 5],
+          [4, 0],
+          [5, 1],
+        ]
+          .map(([a, b]) => {
+            const [x1, y1] = nodePositions[a];
+            const [x2, y2] = nodePositions[b];
+            return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#9fb7ff" stroke-width="7" stroke-linecap="round" opacity="0.78" />`;
+          })
+          .join("");
+
+        const nodes = nodePositions
+          .map(([x, y], index) => {
+            const number = numbers[index] ?? "";
+            const glow = index === 0 ? "#80cfff" : index === 1 ? "#d8ecff" : index === 2 ? "#b8d8ff" : index === 3 ? "#8dd8ff" : index === 4 ? "#ffb4b6" : "#ffd3d4";
+            const fill = index === 4 ? "#fff7f7" : "#f8fbff";
+            return `
+              <g>
+                <circle cx="${x}" cy="${y}" r="78" fill="${glow}" opacity="0.18" />
+                <circle cx="${x}" cy="${y}" r="52" fill="${fill}" stroke="${glow}" stroke-width="8" />
+                <text x="${x}" y="${y + 16}" text-anchor="middle" fill="#111827" font-size="40" font-weight="700" font-family="Arial, sans-serif">${escapeXml(number)}</text>
+              </g>
+            `;
+          })
+          .join("");
+
+        const stars = Array.from({ length: 120 }, (_, index) => {
+          const x = (index * 127) % 1536;
+          const y = (index * 211 + 87) % 2048;
+          const r = 0.8 + ((index * 13) % 22) / 16;
+          const opacity = 0.15 + ((index * 17) % 60) / 100;
+          return `<circle cx="${x}" cy="${y}" r="${r.toFixed(2)}" fill="#ffffff" opacity="${opacity.toFixed(2)}" />`;
+        }).join("");
+
+        return `
+          <svg xmlns="http://www.w3.org/2000/svg" width="1536" height="2048" viewBox="0 0 1536 2048">
+            <defs>
+              <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#0c1025" />
+                <stop offset="48%" stop-color="#0a0d1c" />
+                <stop offset="100%" stop-color="#05070f" />
+              </linearGradient>
+              <radialGradient id="haloA" cx="50%" cy="28%" r="55%">
+                <stop offset="0%" stop-color="#89b7ff" stop-opacity="0.42" />
+                <stop offset="45%" stop-color="#89b7ff" stop-opacity="0.08" />
+                <stop offset="100%" stop-color="#89b7ff" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="haloB" cx="76%" cy="58%" r="42%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.24" />
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+              </radialGradient>
+              <filter id="blurGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="18" />
+              </filter>
+            </defs>
+            <rect width="1536" height="2048" fill="url(#bg)" />
+            <rect width="1536" height="2048" fill="url(#haloA)" />
+            <circle cx="1150" cy="520" r="540" fill="#7db4ff" opacity="0.08" filter="url(#blurGlow)" />
+            <circle cx="420" cy="1260" r="420" fill="#ffffff" opacity="0.03" filter="url(#blurGlow)" />
+            <rect width="1536" height="2048" fill="url(#haloB)" />
+            <g>${stars}</g>
+            <text x="768" y="170" text-anchor="middle" fill="#dfe5ff" font-size="36" letter-spacing="14" font-family="Arial, sans-serif">${title}</text>
+            <text x="768" y="240" text-anchor="middle" fill="#ffffff" font-size="70" font-weight="700" font-family="Arial, sans-serif">세트 별자리</text>
+            <text x="768" y="290" text-anchor="middle" fill="#b7bdd4" font-size="22" font-family="Arial, sans-serif">밝기 = 역대 등장 · 선 = 함께 나온 기록</text>
+            <g opacity="0.18">${nodeLines}</g>
+            <g>${nodes}</g>
+            <g>
+              <text x="768" y="1380" text-anchor="middle" fill="#c8d0ff" font-size="34" font-family="Arial, sans-serif">${zodiac}</text>
+              <text x="768" y="1432" text-anchor="middle" fill="#7f8ab3" font-size="18" font-family="Arial, sans-serif">${birthDate}</text>
+            </g>
+            <g>${chips}</g>
+            <text x="768" y="1940" text-anchor="middle" fill="#8f95b5" font-size="18" font-family="Arial, sans-serif">로컬 대체 카드 · Higgsfield 응답 실패 시 자동 생성</text>
+          </svg>
+        `.trim();
+      }
+
+      function buildLocalStarCardUrl(data) {
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(buildLocalStarCardSvg(data))}`;
+      }
+
       async function generateStarCard(data) {
         if (!data) return;
 
@@ -795,8 +921,8 @@
           setCardPreviewStatus("완료", "별자리 카드 생성이 완료됐어요.");
         } catch (error) {
           console.error(error);
-          setCardPreviewStatus("오류", `카드 생성 실패: ${String(error.message || error)}`);
-          showCardPreview("");
+          showCardPreview(buildLocalStarCardUrl(data));
+          setCardPreviewStatus("로컬 카드", "Higgsfield 대신 로컬 별자리 카드로 표시했어요.");
         }
       }
 
