@@ -515,6 +515,12 @@
       const zodiacShort = document.getElementById("zodiacShort");
       const statusBadge = document.getElementById("statusBadge");
 
+      function trackGaEvent(eventName, params = {}) {
+        if (typeof window.gtag === "function") {
+          window.gtag("event", eventName, params);
+        }
+      }
+
       const zodiacRanges = [
         ["염소자리", [12, 22], [1, 19]],
         ["물병자리", [1, 20], [2, 18]],
@@ -717,6 +723,13 @@
           statusBadge.textContent = "처리 중";
         }
       }
+
+      sendBtn.addEventListener("click", () => {
+        trackGaEvent("lotto_number_request_click", {
+          event_category: "engagement",
+          event_label: "번호 받기",
+        });
+      });
 
       function addAssistantPlaceholder() {
         const message = document.createElement("div");
