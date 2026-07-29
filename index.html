@@ -303,6 +303,17 @@
       .btn-secondary:hover { background: var(--surface-soft); }
       .btn:disabled, .text-input:disabled { opacity: 0.6; cursor: not-allowed; }
       .helper { font-size: 13px; color: var(--muted); }
+      .control-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .section-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
 
       .side { display: grid; gap: 16px; }
       .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -315,6 +326,47 @@
       }
       .info-item strong { font-size: 20px; letter-spacing: -0.03em; }
       .info-item span { font-size: 13px; color: var(--muted); }
+
+      .settings-fields {
+        display: grid;
+        gap: 10px;
+      }
+
+      .card-preview {
+        position: relative;
+        min-height: 360px;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        background: linear-gradient(180deg, #0f1326, #070910);
+        border: 1px solid var(--hairline);
+      }
+
+      .card-preview img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .card-preview-placeholder {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: rgba(255, 255, 255, 0.76);
+        text-align: center;
+        font-size: 14px;
+        line-height: 1.6;
+        background:
+          radial-gradient(circle at 20% 20%, rgba(122, 156, 255, 0.24), transparent 28%),
+          radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08), transparent 22%);
+      }
+
+      .card-preview-status {
+        font-size: 13px;
+        color: var(--muted);
+      }
 
       .history-list { display: grid; gap: 10px; }
       .history-item {
@@ -456,13 +508,40 @@
               </div>
             </section>
 
-            <section class="surface side-card">
-              <h3>빠른 시작</h3>
-              <p>생년월일을 넣고 전송하면 챗봇이 번호와 이유를 한 번에 알려줍니다.</p>
-              <div class="helper">예: 1994-03-21</div>
-            </section>
-          </aside>
-        </section>
+          <section class="surface side-card">
+            <h3>빠른 시작</h3>
+            <p>생년월일을 넣고 전송하면 챗봇이 번호와 이유를 한 번에 알려줍니다.</p>
+            <div class="helper">예: 1994-03-21</div>
+          </section>
+
+          <section class="surface side-card">
+            <h3>Higgsfield 설정</h3>
+            <div class="settings-fields">
+              <input class="text-input" id="hfApiKey" type="text" autocomplete="off" placeholder="API Key ID" />
+              <input class="text-input" id="hfApiSecret" type="password" autocomplete="off" placeholder="API Secret" />
+            </div>
+            <div class="control-row">
+              <button class="btn btn-secondary" id="saveHfBtn" type="button">저장</button>
+              <button class="btn btn-secondary" id="clearHfBtn" type="button">지우기</button>
+            </div>
+            <div class="helper">이 브라우저에만 저장됩니다. 번호를 받으면 Soul 2.0 카드 생성에 사용돼요.</div>
+          </section>
+
+          <section class="surface side-card">
+            <div class="section-title">
+              <h3>별자리 카드</h3>
+              <span class="card-preview-status" id="cardStatus">대기</span>
+            </div>
+            <div class="card-preview">
+              <img id="cardPreviewImg" alt="생성된 별자리 카드" hidden />
+              <div class="card-preview-placeholder" id="cardPreviewPlaceholder">
+                번호를 받으면, 첨부한 느낌의 별자리 카드가 자동 생성돼요.
+              </div>
+            </div>
+            <button class="btn btn-secondary" id="regenerateCardBtn" type="button">카드 다시 만들기</button>
+          </section>
+        </aside>
+      </section>
 
         <section class="surface chat-card">
           <div class="chat-header">
@@ -514,6 +593,17 @@
       const seedValue = document.getElementById("seedValue");
       const zodiacShort = document.getElementById("zodiacShort");
       const statusBadge = document.getElementById("statusBadge");
+      const hfApiKeyInput = document.getElementById("hfApiKey");
+      const hfApiSecretInput = document.getElementById("hfApiSecret");
+      const saveHfBtn = document.getElementById("saveHfBtn");
+      const clearHfBtn = document.getElementById("clearHfBtn");
+      const regenerateCardBtn = document.getElementById("regenerateCardBtn");
+      const cardStatus = document.getElementById("cardStatus");
+      const cardPreviewImg = document.getElementById("cardPreviewImg");
+      const cardPreviewPlaceholder = document.getElementById("cardPreviewPlaceholder");
+
+      const HF_STORAGE_KEY = "higgsfield_credentials_v1";
+      const HF_CLIENT_SPEC = "https://esm.sh/@higgsfield/client@latest";
 
       function trackGaEvent(eventName, params = {}) {
         if (typeof window.gtag === "function") {
@@ -538,6 +628,177 @@
 
       let drawCount = 0;
       let history = [];
+      let latestDraw = null;
+      let cachedHiggsfieldSdk = null;
+
+      function setCardPreviewStatus(status, message) {
+        if (cardStatus) {
+          cardStatus.textContent = status;
+        }
+        if (cardPreviewPlaceholder) {
+          cardPreviewPlaceholder.textContent = message;
+        }
+      }
+
+      function showCardPreview(url) {
+        if (!url) {
+          cardPreviewImg.hidden = true;
+          cardPreviewImg.removeAttribute("src");
+          cardPreviewPlaceholder.hidden = false;
+          return;
+        }
+
+        cardPreviewImg.src = url;
+        cardPreviewImg.hidden = false;
+        cardPreviewPlaceholder.hidden = true;
+      }
+
+      function getSavedHiggsfieldCredentials() {
+        try {
+          const raw = localStorage.getItem(HF_STORAGE_KEY);
+          if (!raw) return { apiKey: "", apiSecret: "" };
+          const parsed = JSON.parse(raw);
+          return {
+            apiKey: typeof parsed.apiKey === "string" ? parsed.apiKey : "",
+            apiSecret: typeof parsed.apiSecret === "string" ? parsed.apiSecret : "",
+          };
+        } catch {
+          return { apiKey: "", apiSecret: "" };
+        }
+      }
+
+      function saveHiggsfieldCredentials(apiKey, apiSecret) {
+        try {
+          localStorage.setItem(
+            HF_STORAGE_KEY,
+            JSON.stringify({
+              apiKey: apiKey.trim(),
+              apiSecret: apiSecret.trim(),
+            }),
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function clearHiggsfieldCredentials() {
+        try {
+          localStorage.removeItem(HF_STORAGE_KEY);
+        } catch {
+          return false;
+        }
+        return true;
+      }
+
+      function loadHiggsfieldCredentialsIntoForm() {
+        const creds = getSavedHiggsfieldCredentials();
+        hfApiKeyInput.value = creds.apiKey;
+        hfApiSecretInput.value = creds.apiSecret;
+      }
+
+      async function loadHiggsfieldSdk() {
+        if (cachedHiggsfieldSdk) {
+          return cachedHiggsfieldSdk;
+        }
+
+        const clientMod = await import(HF_CLIENT_SPEC);
+
+        cachedHiggsfieldSdk = {
+          HiggsfieldClient: clientMod.HiggsfieldClient || clientMod.default?.HiggsfieldClient || clientMod.default,
+        };
+
+        return cachedHiggsfieldSdk;
+      }
+
+      function buildHiggsfieldPrompt(data) {
+        const chips = data.numbers.join(", ");
+        return [
+          "Create a premium vertical zodiac lottery card image inspired by a dark navy cosmic constellation poster.",
+          "Style: elegant, minimal, high-contrast, dreamy glow, subtle stars, soft bloom, luminous nodes, thin constellation lines, premium editorial design.",
+          "Composition: portrait card, centered constellation network made of six glowing number nodes connected with delicate lines.",
+          "Add tasteful Korean typography near the top with the title 'LOTTODB 세트 별자리'.",
+          `Include the lotto numbers clearly as the six main nodes: ${chips}.`,
+          `Use the zodiac sign ${data.zodiac} as the thematic mood.`,
+          `Birth date context: ${data.birthDate || ""}.`,
+          "Background: midnight blue to black gradient, starfield, quiet luxury, clean spacing, no clutter, no watermark, no mock browser frame.",
+          "Make the image feel like a collectible astrology card that matches a modern premium lottery app.",
+        ].join(" ");
+      }
+
+      function extractHiggsfieldImageUrl(jobSet) {
+        const jobs = jobSet?.jobs || [];
+        for (const job of jobs) {
+          const results = job?.results;
+          if (!results) continue;
+          const candidates = [
+            results?.raw?.url,
+            results?.raw?.image_url,
+            results?.url,
+            results?.image_url,
+            results?.images?.[0]?.url,
+            results?.outputs?.[0]?.url,
+            results?.output?.url,
+          ];
+          const found = candidates.find((value) => typeof value === "string" && value.length > 0);
+          if (found) return found;
+        }
+        return "";
+      }
+
+      async function generateStarCard(data) {
+        if (!data) return;
+
+        const creds = getSavedHiggsfieldCredentials();
+        if (!creds.apiKey || !creds.apiSecret) {
+          setCardPreviewStatus("대기", "Higgsfield API 키를 입력하면 카드가 자동 생성돼요.");
+          showCardPreview("");
+          return;
+        }
+
+        if (location.protocol === "file:") {
+          setCardPreviewStatus("대기", "로컬 파일에서는 카드 생성 호출을 건너뛰었어요. 웹사이트에서 실행하면 자동 생성돼요.");
+          showCardPreview("");
+          return;
+        }
+
+        setCardPreviewStatus("생성 중", "Higgsfield Soul 2로 별자리 카드를 만들고 있어요...");
+
+        try {
+          const { HiggsfieldClient } = await loadHiggsfieldSdk();
+          if (typeof HiggsfieldClient !== "function") {
+            throw new Error("Higgsfield SDK를 불러오지 못했습니다.");
+          }
+
+          const client = new HiggsfieldClient({
+            apiKey: creds.apiKey.trim(),
+            apiSecret: creds.apiSecret.trim(),
+          });
+
+          const jobSet = await client.generate(
+            "/v1/text2image/soul",
+            {
+              prompt: buildHiggsfieldPrompt(data),
+              width_and_height: "PORTRAIT_1536x2048",
+              quality: "HD",
+              batch_size: "SINGLE",
+            },
+            { withPolling: true },
+          );
+
+          const imageUrl = extractHiggsfieldImageUrl(jobSet);
+          if (!imageUrl) {
+            throw new Error("생성된 이미지 주소를 찾지 못했습니다.");
+          }
+
+          showCardPreview(imageUrl);
+          setCardPreviewStatus("완료", "별자리 카드 생성이 완료됐어요.");
+        } catch (error) {
+          console.error(error);
+          setCardPreviewStatus("오류", `카드 생성 실패: ${String(error.message || error)}`);
+          showCardPreview("");
+        }
+      }
 
       function formatDateLabel(value) {
         const date = new Date(`${value}T00:00:00`);
@@ -712,12 +973,16 @@
         seedValue.textContent = "-";
         zodiacShort.textContent = "-";
         statusBadge.textContent = "대기";
+        latestDraw = null;
+        setCardPreviewStatus("대기", "번호를 받으면, 첨부한 느낌의 별자리 카드가 자동 생성돼요.");
+        showCardPreview("");
         drawCountEl.textContent = String(drawCount);
       }
 
       function setBusyState(loading) {
         sendBtn.disabled = loading;
         birthDateInput.disabled = loading;
+        regenerateCardBtn.disabled = loading;
         sendBtn.textContent = loading ? "계산 중..." : "번호 받기";
         if (loading) {
           statusBadge.textContent = "처리 중";
@@ -794,8 +1059,14 @@
           statusBadge.textContent = "완료";
           drawCount += 1;
           drawCountEl.textContent = String(drawCount);
+          latestDraw = {
+            ...data,
+            birthDate,
+            generatedAt: new Date().toISOString(),
+          };
 
           appendMessage("assistant", renderAssistantCard(data));
+          void generateStarCard(latestDraw);
 
           pushHistory({
             time: new Intl.DateTimeFormat("ko-KR", {
@@ -820,6 +1091,30 @@
         }
       });
 
+      saveHfBtn.addEventListener("click", () => {
+        const saved = saveHiggsfieldCredentials(hfApiKeyInput.value, hfApiSecretInput.value);
+        setCardPreviewStatus(
+          saved ? "저장됨" : "저장 실패",
+          saved ? "Higgsfield 키가 이 브라우저에 저장됐어요." : "브라우저 저장소를 쓸 수 없어서 카드 생성만 시도할게요.",
+        );
+      });
+
+      clearHfBtn.addEventListener("click", () => {
+        hfApiKeyInput.value = "";
+        hfApiSecretInput.value = "";
+        clearHiggsfieldCredentials();
+        setCardPreviewStatus("대기", "Higgsfield API 키를 입력하면 카드가 자동 생성돼요.");
+        showCardPreview("");
+      });
+
+      regenerateCardBtn.addEventListener("click", () => {
+        if (!latestDraw) {
+          setCardPreviewStatus("대기", "먼저 번호를 한 번 받아주세요.");
+          return;
+        }
+        void generateStarCard(latestDraw);
+      });
+
       quickResetBtn.addEventListener("click", () => {
         chatLog.innerHTML = "";
         history = [];
@@ -831,6 +1126,7 @@
       });
 
       renderHistory();
+      loadHiggsfieldCredentialsIntoForm();
       setIdleState();
       appendMessage("assistant", "안녕하세요. 생년월일을 입력해주시면 별자리를 계산해서 번호 6개와 이유를 알려드릴게요.");
     </script>
