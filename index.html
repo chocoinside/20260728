@@ -643,6 +643,14 @@
         note.textContent = `${data.selectionBasis} ${data.disclaimer}`;
 
         card.append(kicker, chipRow, explanation, note);
+
+        if (data.storageError) {
+          const storageNote = document.createElement("div");
+          storageNote.className = "assistant-note";
+          storageNote.textContent = `저장은 실패했어요: ${data.storageError}`;
+          card.appendChild(storageNote);
+        }
+
         return card;
       }
 

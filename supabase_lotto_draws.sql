@@ -19,6 +19,9 @@ create table if not exists public.lotto_draws (
   user_agent text
 );
 
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table public.lotto_draws to service_role;
+
 create index if not exists lotto_draws_created_at_idx
   on public.lotto_draws (created_at desc);
 
@@ -50,4 +53,3 @@ end $$;
 
 comment on table public.lotto_draws is
   'Stores lotto draw results generated from a birth date, zodiac sign, and AI explanation.';
-
