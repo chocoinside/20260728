@@ -779,9 +779,9 @@
             "/v1/text2image/soul",
             {
               prompt: buildHiggsfieldPrompt(data),
-              width_and_height: "PORTRAIT_1536x2048",
-              quality: "HD",
-              batch_size: "SINGLE",
+              width_and_height: "1536x2048",
+              quality: "1080p",
+              batch_size: 1,
             },
             { withPolling: true },
           );
